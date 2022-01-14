@@ -1,6 +1,6 @@
 # FPGA FINAL PPROJECT
 
-## Authors : 109321018, 109321012
+## Authors : 109321012, 109321018
 
 #### Input Output unit:<br>
 
