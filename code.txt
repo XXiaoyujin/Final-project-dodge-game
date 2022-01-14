@@ -1,0 +1,762 @@
+module doge_game(output reg [7:0]position_R, position_B, position_G, output reg [2:0]S,output reg touch, input CLK, Clear,up,down,right,left,output reg A,B,C,D,E,F,G,output reg [7:0]b,output reg COM1,COM2,COM3,COM4,output reg En,output reg beep);
+	wire [7:0]p1;
+	wire [2:0]S1;
+	wire [7:0]p2;	
+	wire [2:0]S2;
+	wire [7:0]p3;	
+	wire [2:0]S3;
+	wire [7:0]p4;   
+	wire [2:0]s4;
+	wire [7:0]p5;
+	wire [2:0]s5;    
+	reg [2:0] count;    	
+	reg [3:0] count2;
+   reg [3:0] ti;
+	reg [0:3]a;
+	reg COM;
+	reg way;
+	reg nowin;
+	reg level_up;
+	reg [3:0]grade;
+	reg [4:0] hp;
+	reg [3:0]A_count,B_count;
+	reg [24:0]sub_count;
+	reg stop;
+	
+	divfreq (CLK, CLK_div1);					///移動物的除頻器
+	divfreq2 (CLK, CLK_div2);					///藍色掉落物的除頻器
+	divfreq3 (CLK, CLK_div3);					///移動物和掉落物交替的除頻器
+	divfreq4 (CLK, CLK_div4);					///綠色掉落物的除頻器
+	divfreq5 (CLK, CLK_div5);					///隨機的數字給藍色掉落物
+	divfreq6 (CLK, CLK_div6);					///隨機的數字給綠色掉落物
+	divfreq11 (CLK, CLK_div11);				///time  除頻器
+	divfreq15	c15(CLK, CLK_div15);			//left object 除頻器
+	divfreq17	c17(CLK, CLK_div17);			// right object 除頻器
+	moveobject M1(CLK_div1, Clear,up,down,right, left, p1, S1);	
+   fallingobject F1(CLK_div2, CLK_div5,Clear, p2, S2);
+	fallingobject2 F2(CLK_div4, CLK_div6, Clear, p3, S3);
+	leftobject	F3(CLK_div15, Clear,touch, p4, s4);	//  left object
+	rightobject F4(CLK_div17, Clear,touch, p5, s5);	//  right object
+   initial 
+		begin
+			touch = 0;
+			b = 8'b11111111;  //full hp
+			En=1;
+			nowin=1;
+			stop=0;
+			beep=0;
+			position_R<=8'b11111111;  
+			position_G<=8'b11111111;
+			position_B<=8'b11111111;
+			grade =0;
+		end
+
+always @(posedge CLK_div11, posedge Clear)
+  begin
+    if(Clear) 	
+		begin
+			A_count <= 4'b0000;
+			B_count <= 4'b0000;
+		end
+	
+    else if(hp<8&&nowin) 
+	 begin
+	   if(A_count<4'b1001)
+	     A_count <= A_count + 1'd1; 
+		else
+		  begin
+				A_count<=4'b0000;
+				B_count<=B_count+1'd1;
+        end
+	 end
+	 end
+	
+	always@(posedge CLK_div3)	//counter : keep
+   begin
+	if((A_count==4'b0000)&&(B_count==4'b0011))
+	begin
+		nowin=0;
+		stop=1;
+		end
+	   COM<=~COM;
+		if(COM)
+			begin
+				a[0:3]<=A_count;
+				COM1<=1;
+				COM2<=0;
+			end
+		else
+			begin
+				a[0:3]<=B_count;
+				COM1<=0;
+				COM2<=1;
+			end
+		    A <= ~(a[0]&~a[1]&~a[2] | ~a[0]&a[2] | ~a[1]&~a[2]&~a[3] | ~a[0]&a[1]&a[3]);
+	       B <= ~(~a[0]&~a[1] | ~a[1]&~a[2] | ~a[0]&~a[2]&~a[3] | ~a[0]&a[2]&a[3]);
+			 C <= ~(~a[0]&a[1] | ~a[1]&~a[2] | ~a[0]&a[3]);
+			 D <= ~(a[0]&~a[1]&~a[2] | ~a[0]&~a[1]&a[2] | ~a[0]&a[2]&~a[3] | ~a[0]&a[1]&~a[2]&a[3] | ~a[1]&~a[2]&~a[3]);
+			 E <= ~(~a[1]&~a[2]&~a[3] | ~a[0]&a[2]&~a[3]);
+			 F <= ~(~a[0]&a[1]&~a[2] | ~a[0]&a[1]&~a[3] | a[0]&~a[1]&~a[2] | ~a[1]&~a[2]&~a[3]);
+			 G <= ~(a[0]&~a[1]&~a[2] | ~a[0]&~a[1]&a[2] | ~a[0]&a[1]&~a[2] | ~a[0]&a[2]&~a[3]);
+			end
+		
+	//扣血
+	always@(posedge touch,posedge Clear)
+		begin
+		   if(Clear)
+				hp<=0;
+		   else if(hp<=9)
+				hp<=hp+1;
+				
+		end
+		
+	always@(posedge CLK_div3,posedge Clear)   //    keep  picture of char v
+	begin
+	   if(Clear)
+			begin
+				position_R<=8'b11111111;
+				position_G<=8'b11111111;
+				position_B<=8'b11111111;
+			end
+		else if(~nowin)  
+				begin
+				count2 <= count2+1;
+				b<=8'b00000000;
+				if(count2>7)
+					count2<=0;
+				if(count2==0)
+					begin
+						position_R<=8'b11101111;
+						position_G<=8'b11101111;
+						position_B<=8'b11101111;
+						S<=0;		
+					end
+				else if(count2==1)
+					begin
+						position_R<=8'b11110111;
+						position_G<=8'b11110111;
+						position_B<=8'b11110111;
+						S<=1;
+						
+					end
+				else if(count2==2)
+					begin
+						position_R<=8'b11111011;
+						position_G<=8'b11111011;
+						position_B<=8'b11111011;
+						S<=2;
+					end
+				else if(count2==3)
+					begin
+						position_R<=8'b11111101;
+						position_G<=8'b11111101;
+						position_B<=8'b11111101;
+						S<=3;
+					end
+				else if(count2==4)
+					begin
+						position_R<=8'b11111011;
+						position_G<=8'b11111011;
+						position_B<=8'b11111011;
+						S<=4;
+					end
+				else if(count2==5)
+					begin
+						position_R<=8'b11110111;
+						position_G<=8'b11110111;
+						position_B<=8'b11110111;
+						S<=5;
+					end
+				else if(count2==6)
+					begin
+						position_R<=8'b11101111;
+						position_G<=8'b11101111;
+						position_B<=8'b11101111;
+						S<=6;
+					end
+				else if(count2==7)
+					begin
+						position_R<=8'b11011111;
+						position_G<=8'b11011101;
+						position_B<=8'b11011111;
+						S<=7;
+					end	
+		end
+		else if(hp<4'b1000)	//if you still alive ,keep your  blocks
+			begin
+				count <= count+1;
+				if(count>4)
+					count<=0;
+				if(count==0)
+					begin
+						position_R<=p1;      				//fixed
+						position_G<=8'b11111111;
+						position_B<=8'b11111111;
+						S<=S1;		
+					end
+					
+				else if(count==1)
+					begin
+							position_R<=8'b11111111;
+							position_G<=8'b11111111;
+							position_B<=p2;
+							S<=S2;
+					end
+				else if(count==2)
+					begin
+							position_R<=8'b11111111;
+							position_B<=8'b11111111;
+							position_G<=p3;
+							S<=S3;
+					 end
+				else if(count==3)       
+					begin	
+							position_R<=p5;
+							position_B<=8'b11111111;
+	
+							position_G<=p5;
+							S<=s5;
+					end
+				else if(count==4)
+					begin	
+							position_R<=p4;
+							position_G<=8'b11111111;
+							position_B<=p4;
+							S<=s4;
+					end    
+			
+				
+			if(((p1==p2)&&(S1==S2))||((p1==p3)&&(S1==S3))||((p1==p4)&&(S1==s4))||((p1==p5)&&(S1==s5)))  //collide
+				begin
+					beep<=1;
+					touch<=1;	
+				end
+			else
+				begin
+					touch<=0;
+					beep<=0;
+				end
+		
+		
+			
+			
+			
+			
+			if(hp==0)//	 血量
+			  b<=8'b11111111;
+			if(hp==1)
+			  b<=8'b11111110;
+			else if(hp==2)
+			  b<=8'b11111100;
+			else if(hp==3)
+			  b<=8'b11111000;
+			else if(hp==4)
+			  b<=8'b11110000;
+			else if(hp==5)
+			  b<=8'b11100000;
+			else if(hp==6)
+			  b<=8'b11000000;
+			else if(hp==7)
+			  b<=8'b10000000;
+		end
+		
+		else	//顯示OVER
+			begin
+			if(nowin)
+				begin
+				count2 <= count2+1;
+				b<=8'b00000000;
+				beep<=0;
+				if(count2>7)
+					count2<=0;
+				if(count2==0)
+					begin
+						position_R<=8'b00011111;
+						position_G<=8'b11100000;
+						position_B<=8'b11111111;
+						S<=0;		
+					end
+				else if(count2==1)
+					begin
+						position_R<=8'b01011111;
+						position_G<=8'b11101010;
+						position_B<=8'b11111111;
+						S<=1;
+						
+					end
+				else if(count2==2)
+					begin
+						position_R<=8'b01011111;
+						position_G<=8'b11101010;
+						position_B<=8'b11111111;
+						S<=2;
+					end
+				else if(count2==3)
+					begin
+						position_R<=8'b00011111;
+						position_G<=8'b11101010;
+						position_B<=8'b11111111;
+						S<=3;
+					end
+				else if(count2==4)
+					begin
+						position_R<=8'b11100000;
+						position_G<=8'b11111111;
+						position_B<=8'b00100000;
+						S<=4;
+					end
+				else if(count2==5)
+					begin
+						position_R<=8'b11101011;
+						position_G<=8'b11111111;
+						position_B<=8'b11001011;
+						S<=5;
+					end
+				else if(count2==6)
+					begin
+						position_R<=8'b11101001;
+						position_G<=8'b11111111;
+						position_B<=8'b11001001;
+						S<=6;
+					end
+				else if(count2==7)
+					begin
+						position_R<=8'b11110110;
+						position_G<=8'b11111111;
+						position_B<=8'b00110110;
+						S<=7;
+					end	
+		end
+		
+		end
+		
+end
+endmodule
+
+
+
+//////移動物////////
+module moveobject(input CLK_div, Clear, up,down,right, left ,output reg [7:0]position, output reg [2:0]S); 
+	always@(posedge CLK_div, posedge Clear)
+		begin
+			if(Clear)	//reset
+				begin
+					S<=4;
+					position<=8'b11101111;  /// 出生地
+				end
+			else if(left)
+				begin
+					if(S==0)	//邊
+						begin
+							S<=S;
+							position<=position;
+						end
+					else
+						begin
+							S<=S-1;
+							position<=position;
+						end
+				end
+			else if(right)
+				begin
+					if(S==7)	//邊
+						begin
+							S<=S;
+							position<=position;
+						end
+					else
+						begin
+							S<=S+1;
+							position<=position;
+						end
+				end
+				
+			else if(up)       ////////////////////// fixed
+				begin
+					if(position==8'b01111111)	//最上面
+						begin
+							S<=S;//colomn no change
+							position<=position;
+						end
+					else
+						begin
+							S<=S;
+							//position<=position <<1;
+							position<={position[6:0],1'b1} ; //down
+						end
+				end
+			
+			else if(down)       ////////////////////// fixed
+				begin
+					if(position==8'b11111110)	//最上面
+						begin
+							S<=S;//colomn no change
+							position<=position;
+						end
+					else
+						begin
+							S<=S;
+							position<={1'b1,position[7:1]} ;//down
+						end
+				end
+			
+			
+		end
+endmodule
+
+/////藍色掉落物///////
+module fallingobject(input CLK_div2, CLK_div5,Clear, output reg [7:0]position, output reg [2:0]SS);
+	reg[24:0]cnt;
+   reg restart;
+	reg random;
+	always @(posedge CLK_div5) 
+		begin
+			if(cnt > 250000)
+				cnt <= 25'd0; 		
+			else
+		     cnt <= cnt + 1'b1;
+		end
+		
+	
+	initial
+	begin
+	SS =cnt%8;
+   restart = 0;
+	end	
+	
+	always @(posedge CLK_div2)
+		begin
+				if(restart)
+					begin
+						random=cnt%2;
+						if(random)
+							position <= 8'b01111111;
+						else
+							position<=8'b11111110;
+						SS <=cnt%8;
+						restart = 0;
+					end
+			   else
+					begin
+					if(~random)
+						position <= {position[6:0],1'b1};
+					else
+						position <= {1'b1,position[7:1]};
+						if(position == 8'b11111111)
+						begin
+							restart = 1;
+						end
+					end
+						
+		end
+endmodule
+
+/////right object//
+
+
+module rightobject(input CLK_div17, touch, Clear, output reg [7:0]rightob, output reg [2:0]pos);
+	reg[24:0]cnt;
+	reg restart;
+
+	initial
+	begin
+		rightob = 8'b11111101;								  
+		pos = 3'b111;
+		restart = 0;
+	end
+		always@(posedge CLK_div17)
+			begin
+				if(restart) 
+					begin
+						rightob <= ~(~rightob << 1);      
+						restart = 0;
+						if(rightob == 8'b11111111)
+							begin	
+								rightob <= 8'b11111110;		
+							end
+					end
+				else 
+					begin
+						pos <= pos - 1'b1;
+						if(pos == 3'b000)
+							begin
+								restart = 1;
+							end
+					end
+
+			end
+endmodule
+
+
+
+
+/////left object/////
+module leftobject(input CLK_div15, touch, Clear, output reg [7:0]leftob, output reg [2:0]pos);
+	reg[24:0]cnt;
+	reg restart;
+	
+	initial
+	begin
+		leftob = 8'b10111111;									
+		pos = 3'b000;
+		restart = 0;
+	end
+		always@(posedge CLK_div15)
+			begin
+				if(restart) 
+					begin
+						leftob <= ~(~leftob >> 1);
+						restart = 0;
+						if(leftob == 8'b11111111)
+							begin	
+								leftob <= 8'b01111111;			
+							end
+					end
+				else 
+					begin
+						pos <= pos + 1'b1;
+						if(pos == 3'b111)
+							begin
+								restart = 1;
+							end
+					end
+
+			end
+endmodule
+
+
+
+/////綠色掉落物/////
+module fallingobject2(input CLK_div4, CLK_div6,Clear,output reg [7:0]position, output reg [2:0]SS);
+	reg[24:0]cnt;
+	reg restart;
+	reg random;
+	always @(posedge CLK_div6) 
+		begin
+			if(cnt > 250000)
+				cnt <= 25'd0; 		
+			else
+				cnt <= cnt + 1'b1;	  
+		end 	
+		
+	initial
+	begin
+      restart = 0;
+	end		
+	always @(posedge CLK_div4)
+		begin
+			if(restart)
+				begin
+				random=cnt%2;
+				if(random)
+					position <= 8'b01111111;	
+				else
+					position <=8'b11111110;
+					SS <=cnt%8;
+					restart = 0;
+				end
+			else 
+				begin
+				if(random)
+					position <= {1'b1,position[7:1]};
+				else
+					position <= {position[6:0],1'b1};
+					if(position == 8'b11111111)
+					begin
+						restart = 1;
+					end
+				end
+		end	
+endmodule
+
+
+//////移動物的除頻器//////
+module divfreq(input CLK, output reg CLK_div); 
+	reg [24:0] Count; 
+	always @(posedge CLK) 
+		begin 
+			if(Count > 7500000) 
+				begin 
+					Count <= 25'b0; CLK_div <= ~CLK_div; 
+				end 
+			else 
+				Count <= Count + 1'b1; 	
+		end 
+endmodule 
+
+/////藍色掉落物的除頻器/////
+module divfreq2(input CLK, output reg CLK_div);
+	reg [24:0] Count; 
+	int tmp=0;
+	always @(posedge CLK) 
+		begin 
+		tmp=tmp+600;
+			if(Count > 10500000-tmp) 
+				begin 
+					Count <= 25'b0; CLK_div <= ~CLK_div; 
+				end 
+			else 
+				Count <= Count + 1'b1; 
+		end 
+endmodule 
+
+//////移動物和掉落物交替的除頻器//////
+module divfreq3(input CLK, output reg CLK_div); 
+	reg [24:0] Count; 
+	always @(posedge CLK) 
+		begin 
+			if(Count > 10000)
+				begin 
+					Count <= 25'b0; CLK_div <= ~CLK_div; 
+				end 
+			else 
+				Count <= Count + 1'b1; 
+		end 
+endmodule 
+
+///////////綠色掉落物的除頻器//////////
+module divfreq4(input CLK, output reg CLK_div); 
+reg [24:0] Count; 
+int tmp=0;
+always @(posedge CLK) 
+begin
+	tmp=tmp+1000;
+	if(Count > 7500000-tmp) 
+	begin 
+		Count <= 25'b0; CLK_div <= ~CLK_div; 
+	end 
+	else 
+		Count <= Count + 1'b1; 
+end 
+endmodule 
+
+////random////blue/////
+module divfreq5(input CLK, output reg CLK_div); 
+reg [24:0] Count; 
+always @(posedge CLK) 
+begin 
+	if(Count > 123456) 
+	begin 
+		Count <= 25'b0; CLK_div <= ~CLK_div; 
+	end 
+	else 
+		Count <= Count + 1'b1; 
+end 
+endmodule 
+
+////random////green////
+module divfreq6(input CLK, output reg CLK_div); 
+reg [24:0] Count; 
+always @(posedge CLK) 
+begin 
+	if(Count > 654321) 
+	begin 
+		Count <= 25'b0; CLK_div <= ~CLK_div; 
+	end 
+	else 
+		Count <= Count + 1'b1; 
+end 
+endmodule 
+
+
+////score/////
+module score(output reg A,B,C,D,E,F,G, input [3:0]A_count,B_count,input CLK_div,output reg COM1,COM2);
+	reg [3:0]a;
+	reg COM;		 
+	always@(posedge CLK_div)
+   begin
+	   COM<=~COM;
+		if(COM)
+			begin
+				a[3:0]<=5;
+				COM1<=1;
+				COM2<=0;
+			end
+		else
+			begin
+				a[3:0]<=8;
+				COM1<=0;
+				COM2<=1;
+			end
+		    A = ~(a[0]&~a[1]&~a[2] | ~a[0]&a[2] | ~a[1]&~a[2]&~a[3] | ~a[0]&a[1]&a[3]);
+	       B = ~(~a[0]&~a[1] | ~a[1]&~a[2] | ~a[0]&~a[2]&~a[3] | ~a[0]&a[2]&a[3]);
+			 C = ~(~a[0]&a[1] | ~a[1]&~a[2] | ~a[0]&a[3]);
+			 D = ~(a[0]&~a[1]&~a[2] | ~a[0]&~a[1]&a[2] | ~a[0]&a[2]&~a[3] | ~a[0]&a[1]&~a[2]&a[3] | ~a[1]&~a[2]&~a[3]);
+			 E = ~(~a[1]&~a[2]&~a[3] | ~a[0]&a[2]&~a[3]);
+			 F = ~(~a[0]&a[1]&~a[2] | ~a[0]&a[1]&~a[3] | a[0]&~a[1]&~a[2] | ~a[1]&~a[2]&~a[3]);
+			 G = ~(a[0]&~a[1]&~a[2] | ~a[0]&~a[1]&a[2] | ~a[0]&a[1]&~a[2] | ~a[0]&a[2]&~a[3]);
+   end
+endmodule 
+///計時器///
+
+module counter4(output reg [3:0]A,output reg [3:0]B, input CLK, Clear);
+  reg [3:0] A_count;
+  reg [3:0] B_count;
+  always @(posedge CLK, posedge Clear)
+  begin 
+    if(Clear) 	
+		begin
+			A_count <= 4'b0000;
+			B_count <= 4'b0000;
+		end
+    else 
+	 begin
+	   if(A_count<4'b1001)
+	     A_count <= A_count + 1'b1; 
+		else
+		  begin
+				A_count<=4'b0000;
+				B_count<=B_count+1'b1;
+        end
+	 end
+	end
+endmodule
+
+
+///left object 除頻器
+
+module divfreq15(input CLK, output reg CLK_div);
+	reg[24:0]Count;
+	always@(posedge CLK)
+		begin
+			if(Count > 25000000)
+				begin
+					Count <= 25'b0;
+					CLK_div <= ~CLK_div;
+				end
+			else
+				Count <= Count + 1'b1;
+		end
+endmodule
+
+
+///right object 除頻器
+
+module divfreq17(input CLK, output reg CLK_div);
+	reg[24:0]Count;
+	always@(posedge CLK)
+		begin
+			if(Count > 25000000)
+				begin
+					Count <= 25'd0;
+					CLK_div <= ~CLK_div;
+				end
+			else
+				Count <= Count + 1'b1;
+		end
+endmodule
+
+
+module divfreq11(input CLK, output reg CLK_div);
+  reg [29:0] Count;
+  always @(posedge CLK)
+    begin
+    if(Count > 25000000)
+      begin
+        Count <= 30'b0;
+        CLK_div <= ~CLK_div;
+      end
+    else
+      Count <= Count + 1'b1;
+    end
+endmodule
